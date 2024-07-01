@@ -1,7 +1,8 @@
-use std::env;
+use anyhow::{Context, Result};
 use chrono::{Duration, Local, TimeZone, Timelike};
 use reqwest::{header::CONTENT_TYPE, Client};
 use serde::Deserialize;
+use std::env;
 
 const TOGGL_API_URL: &str = "https://api.track.toggl.com/api/v9";
 
@@ -27,36 +28,57 @@ struct TimeEntry {
     workspace_id: i64,
 }
 
-async fn start_timer(client: &Client, api_token: &str, start_at: i64, end_at: i64) -> Result<u32, reqwest::Error> {
-    let start_date = Local.timestamp_opt(*start_at,0).unwrap();
+async fn get_timer(
+    client: &Client,
+    api_token: &str,
+    start_at: i64,
+    end_at: i64,
+) -> Result<Vec<TimeEntry>> {
+    let start_date = Local.timestamp_opt(start_at, 0).unwrap();
     let start_str = start_date.to_rfc3339();
-    let end_date = Local.timestamp_opt(*end_at, 0).unwrap();
+    let end_date = Local.timestamp_opt(end_at, 0).unwrap();
     let end_str = end_date.to_rfc3339();
 
-    let time_entry = client.get(format!("{}/me/time_entries", TOGGL_API_URL))
+    let time_entry = client
+        .get(format!("{}/me/time_entries", TOGGL_API_URL))
         .basic_auth(api_token, Some("api_token"))
         .header(CONTENT_TYPE, "application/json")
         .query(&[("start_date", start_str), ("end_date", end_str)])
         .send()
-        .await?
-        .error_for_status()?
+        .await
+        .with_context(|| format!("Failed to send request to Toggl API at {}", TOGGL_API_URL))?
+        .error_for_status()
+        .context("Request returned an error status")?
         .json::<Vec<TimeEntry>>()
-        .await?;
+        .await
+        .context("Failed to deserialize response")?;
 
-    println!("{:#?}", time_entry);
-
-    Ok(3)
+    Ok(time_entry)
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-	let api_token = env::var("TOGGL_API_TOKEN").expect("TOGGL_API_TOKEN must be set");
-	let client = Client::new();
+async fn main() -> Result<()> {
+    let api_token = env::var("TOGGL_API_TOKEN").context("TOGGL_API_TOKEN must be set")?;
+    let client = Client::new();
 
-    let start_at = Local::now().with_hour(0).unwrap().with_minute(0).unwrap().with_second(0).unwrap() - Duration::days(5);
+    let start_at = Local::now()
+        .with_hour(0)
+        .context("Failed to set hour")?
+        .with_minute(0)
+        .context("Failed to set minute")?
+        .with_second(0)
+        .context("Failed to set second")?
+        - Duration::days(5);
     let end_at = start_at + Duration::days(1);
-    let id = start_timer(&client, &api_token, start_at.timestamp(), end_at.timestamp()).await?;
-	println!("Started timer with id: {}", id);
+    let time_entry = get_timer(
+        &client,
+        &api_token,
+        start_at.timestamp(),
+        end_at.timestamp(),
+    )
+    .await
+    .context("Get time entry error")?;
+    println!("{:#?}", time_entry);
 
-	Ok(())
+    Ok(())
 }
