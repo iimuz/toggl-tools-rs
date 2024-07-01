@@ -1,5 +1,7 @@
 use anyhow::{Context, Result};
 use chrono::{Duration, Local, TimeZone, Timelike};
+use env_logger;
+use log::info;
 use reqwest::{header::CONTENT_TYPE, Client};
 use serde::Deserialize;
 use std::env;
@@ -58,6 +60,9 @@ async fn get_timer(
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    env::set_var("RUST_LOG", "info");
+    env_logger::init();
+
     let api_token = env::var("TOGGL_API_TOKEN").context("TOGGL_API_TOKEN must be set")?;
     let client = Client::new();
 
@@ -77,7 +82,9 @@ async fn main() -> Result<()> {
         end_at.timestamp(),
     )
     .await
-    .context("Get time entry error")?;
+    .context("Failed to retrieve time entries")?;
+
+    info!("Time entries retrieved successfully.");
     println!("{:#?}", time_entry);
 
     Ok(())
