@@ -1,24 +1,25 @@
 use std::env;
 
 use anyhow::{Context, Result};
-use chrono::{DateTime, Local, TimeZone, Utc};
+use chrono::{DateTime, Utc};
 use reqwest::{header::CONTENT_TYPE, Client};
 use serde::Deserialize;
 
 use crate::time_entry::TimeEntry;
 
+/// Toggl APIのレスポンスをデシリアライズするための構造体。
 #[derive(Debug, Deserialize)]
-pub struct TogglTimeEntry {
+struct TogglTimeEntry {
     at: String,
     billable: bool,
-    pub description: String,
+    description: String,
     duration: i64,
     duronly: bool,
     id: i64,
     pid: i64,
     project_id: Option<i64>,
     server_deleted_at: Option<String>,
-    pub start: String,
+    start: String,
     stop: Option<String>,
     tag_ids: Vec<i64>,
     tags: Vec<String>,
@@ -65,10 +66,11 @@ impl TogglClient {
         let time_entries = toggl_time_entries
             .into_iter()
             .map(|entry| TimeEntry {
-                description: entry.description,
-                start:DateTime::parse_from_rfc3339(&entry.start)
+                start: DateTime::parse_from_rfc3339(&entry.start)
                     .unwrap()
-                    .to_utc()
+                    .to_utc(),
+                stop: entry.stop.map(|stop| DateTime::parse_from_rfc3339(&stop).unwrap().to_utc()),
+                description: entry.description,
             })
             .collect();
 

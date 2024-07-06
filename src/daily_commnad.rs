@@ -2,8 +2,8 @@ use anyhow::{Context, Result};
 use chrono::{DateTime, Local, NaiveDate, TimeZone, Timelike, Utc};
 use log::info;
 
-use crate::toggl::TogglClient;
 use crate::time_entry::TimeEntry;
+use crate::toggl::TogglClient;
 
 /// `daily`サブコマンドの引数を表す構造体。
 #[derive(Debug, clap::Args)]
@@ -64,14 +64,23 @@ fn show_time_entries(time_entries: &Vec<TimeEntry>) {
     sorted_entries.sort_by_key(|entry| entry.start);
 
     for entry in sorted_entries {
-        let start_str = entry.start.with_timezone(&Local).format("%H:%M");
-        println!("- {} {}", start_str, entry.description)
+        let start_str = entry
+            .start
+            .with_timezone(&Local)
+            .format("%H:%M")
+            .to_string();
+        let end_str = entry
+            .stop
+            .map(|stop| stop.with_timezone(&Local).format("%H:%M").to_string())
+            .unwrap_or_else(|| "now".to_string());
+        println!("- {} ~ {}: {}", start_str, end_str, entry.description)
     }
 }
 
 /// 日付をパースする。
 fn parse_date(s: &str) -> Result<DateTime<Utc>> {
-    let naive_date = NaiveDate::parse_from_str(s, "%Y-%m-%d").with_context(|| format!("Failed to parse date: {}", s))?;
+    let naive_date = NaiveDate::parse_from_str(s, "%Y-%m-%d")
+        .with_context(|| format!("Failed to parse date: {}", s))?;
     let naive_datetime = naive_date
         .and_hms_opt(0, 0, 0)
         .context("Failed to set hour, minute, and second")?;
