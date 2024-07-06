@@ -48,7 +48,7 @@ pub async fn daily_command(daily: DailyCommand) -> Result<()> {
 
     let client = TogglClient::new().context("Failed to new toggl client")?;
     let time_entries = client
-        .get_timer(&start_at.to_utc(), &end_at.to_utc())
+        .read_time_entries(&start_at.to_utc(), &end_at.to_utc())
         .await
         .context("Failed to retrieve time entries")?;
 
