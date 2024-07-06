@@ -1,21 +1,24 @@
-use anyhow::{Context, Result};
-use chrono::{Local, TimeZone};
-use reqwest::{header::CONTENT_TYPE, Client};
-use serde::Deserialize;
 use std::env;
 
+use anyhow::{Context, Result};
+use chrono::{DateTime, Local, TimeZone};
+use reqwest::{header::CONTENT_TYPE, Client};
+use serde::Deserialize;
+
+use crate::time_entry::TimeEntry;
+
 #[derive(Debug, Deserialize)]
-pub struct TimeEntry {
+pub struct TogglTimeEntry {
     at: String,
     billable: bool,
-    description: String,
+    pub description: String,
     duration: i64,
     duronly: bool,
     id: i64,
     pid: i64,
     project_id: Option<i64>,
     server_deleted_at: Option<String>,
-    start: String,
+    pub start: String,
     stop: Option<String>,
     tag_ids: Vec<i64>,
     tags: Vec<String>,
@@ -49,7 +52,7 @@ impl TogglClient {
         let end_date = Local.timestamp_opt(end_at, 0).unwrap();
         let end_str = end_date.to_rfc3339();
 
-        let time_entry = self
+        let toggl_time_entries = self
             .client
             .get(format!("{}/me/time_entries", self.api_url))
             .basic_auth(&self.api_token, Some("api_token"))
@@ -60,10 +63,20 @@ impl TogglClient {
             .with_context(|| format!("Failed to send request to Toggl API at {}", self.api_url))?
             .error_for_status()
             .context("Request returned an error status")?
-            .json::<Vec<TimeEntry>>()
+            .json::<Vec<TogglTimeEntry>>()
             .await
             .context("Failed to deserialize response")?;
 
-        Ok(time_entry)
+        let time_entries = toggl_time_entries
+            .into_iter()
+            .map(|entry| TimeEntry {
+                description: entry.description,
+                start:DateTime::parse_from_rfc3339(&entry.start)
+                    .unwrap()
+                    .timestamp(),
+            })
+            .collect();
+
+        Ok(time_entries)
     }
 }
