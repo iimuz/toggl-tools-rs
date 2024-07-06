@@ -1,7 +1,7 @@
 use std::env;
 
 use anyhow::{Context, Result};
-use chrono::{DateTime, Local, TimeZone};
+use chrono::{DateTime, Local, TimeZone, Utc};
 use reqwest::{header::CONTENT_TYPE, Client};
 use serde::Deserialize;
 
@@ -46,18 +46,13 @@ impl TogglClient {
         })
     }
 
-    pub async fn get_timer(&self, start_at: i64, end_at: i64) -> Result<Vec<TimeEntry>> {
-        let start_date = Local.timestamp_opt(start_at, 0).unwrap();
-        let start_str = start_date.to_rfc3339();
-        let end_date = Local.timestamp_opt(end_at, 0).unwrap();
-        let end_str = end_date.to_rfc3339();
-
+    pub async fn get_timer(&self, start_at: &DateTime<Utc>, end_at: &DateTime<Utc>) -> Result<Vec<TimeEntry>> {
         let toggl_time_entries = self
             .client
             .get(format!("{}/me/time_entries", self.api_url))
             .basic_auth(&self.api_token, Some("api_token"))
             .header(CONTENT_TYPE, "application/json")
-            .query(&[("start_date", start_str), ("end_date", end_str)])
+            .query(&[("start_date", start_at.to_rfc3339()), ("end_date", end_at.to_rfc3339())])
             .send()
             .await
             .with_context(|| format!("Failed to send request to Toggl API at {}", self.api_url))?
@@ -73,7 +68,7 @@ impl TogglClient {
                 description: entry.description,
                 start:DateTime::parse_from_rfc3339(&entry.start)
                     .unwrap()
-                    .timestamp(),
+                    .to_utc()
             })
             .collect();
 
