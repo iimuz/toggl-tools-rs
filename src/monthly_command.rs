@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Ok, Result};
 use chrono::{DateTime, Datelike, Local, NaiveDate, TimeZone, Timelike, Utc};
 use log::info;
 
@@ -17,6 +17,9 @@ pub struct MonthlyCommand {
         parse(try_from_str = parse_month),
     )]
     month: Option<DateTime<Utc>>,
+
+    #[clap(long = "daily", help = "Show summary by day")]
+    daily: bool,
 }
 
 /// `monthly`サブコマンドの処理を行う。
@@ -34,9 +37,9 @@ pub struct MonthlyCommand {
 /// let daily = Daily { date: None };
 /// monthly_command(daily).await.unwrap();
 /// ```
-pub async fn monthly_command(daily: MonthlyCommand) -> Result<()> {
+pub async fn monthly_command(monthly: MonthlyCommand) -> Result<()> {
     // Localのタイムゾーンで00:00:00から始まる1日とする
-    let date = daily.month.unwrap_or_else(|| Local::now().to_utc());
+    let date = monthly.month.unwrap_or_else(|| Local::now().to_utc());
     let local_date = date.with_timezone(&Local);
     let start_at = local_date
         .with_day0(0)
@@ -59,18 +62,42 @@ pub async fn monthly_command(daily: MonthlyCommand) -> Result<()> {
         .context("Failed to retrieve time entries")?;
     info!("Time entries retrieved successfully.");
 
-    let project_tag_duration = calc_project_tag_duration(&time_entries)
-        .context("Failed to calculate project tag duration")?;
-    show_durations(&project_tag_duration);
+    if monthly.daily {
+        let daily_time_entries = time_entries.iter().fold(HashMap::new(), |mut acc, entry| {
+            let start = entry.start.with_timezone(&Local).date_naive();
+            acc.entry(start).or_insert(vec![]).push(entry.clone());
+            acc
+        });
+        let mut sorted_time_entries = daily_time_entries
+            .iter()
+            .map(|(date, entries)| (date.clone(), entries.clone()))
+            .collect::<Vec<_>>();
+        sorted_time_entries.sort_by_key(|(date, _)| *date);
+        sorted_time_entries.iter().try_for_each(|(date, entries)| {
+            println!("## {}", date);
+            let daily_duration = calc_project_tag_duration(entries).with_context(|| {
+                format!(
+                    "Failed to calculate project tag duration for date: {}",
+                    date
+                )
+            })?;
+            show_durations(&daily_duration);
+            Ok(())
+        })?;
+    } else {
+        let project_tag_duration = calc_project_tag_duration(&time_entries)
+            .context("Failed to calculate project tag duration")?;
+        show_durations(&project_tag_duration);
+    }
 
     Ok(())
 }
 
 /// 月をパースする。
 fn parse_month(s: &str) -> Result<DateTime<Utc>> {
-	let target_date = s.to_string() + "-01";
-	let naive_date = NaiveDate::parse_from_str(&target_date, "%Y-%m-%d")
-		.with_context(|| format!("Failed to parse date: {}", target_date))?;
+    let target_date = s.to_string() + "-01";
+    let naive_date = NaiveDate::parse_from_str(&target_date, "%Y-%m-%d")
+        .with_context(|| format!("Failed to parse date: {}", target_date))?;
     let naive_datetime = naive_date
         .with_day0(0)
         .context("Failed to set day")?
