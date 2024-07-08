@@ -7,7 +7,7 @@ use log::info;
 use crate::time_entry::TimeEntry;
 use crate::toggl::TogglClient;
 
-/// `monthly`サブコマンドの引数を表す構造体。
+/// 月毎の情報を出力するためのサブコマンド。
 #[derive(Debug, clap::Args)]
 pub struct MonthlyCommand {
     #[clap(

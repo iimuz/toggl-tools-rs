@@ -24,17 +24,23 @@ use monthly_command::{monthly_command, MonthlyCommand};
 #[derive(Debug, Parser)]
 #[clap(version, about)]
 struct Args {
+    #[clap(short, long, parse(from_occurrences))]
+    /// Sets the verbosity level for logging.
+    /// Each occurrence increases the verbosity level.
+    /// If not explicitly specified as an argument, it will be obtained from the `RUST_LOG` environment variable.
+    /// If nothing is specified, it will default to the error level.
+    verbose: u8,
+
     #[clap(subcommand)]
     subcommand: SubCommands,
 }
-
-/// サブコマンドを表す列挙型。
 #[derive(Debug, Subcommand)]
 enum SubCommands {
     Daily(DailyCommand),
     Monthly(MonthlyCommand),
 }
 
+/// ログファイルのパスを決定する。
 fn determine_log_path() -> Result<PathBuf> {
     // 環境変数からログパスを取得（設定されていない場合はNone）
     let env_log_dir = env::var("TOOGLS_LOG_DIR").ok().map(PathBuf::from);
@@ -55,7 +61,9 @@ fn determine_log_path() -> Result<PathBuf> {
 
     return Ok(log_dir);
 }
-fn init_logger(log_dir: &Path) {
+
+/// ロガーを初期化する。
+fn init_logger(log_dir: &Path, log_level: &log::LevelFilter) {
     let colors = ColoredLevelConfig::new()
         .trace(Color::White)
         .info(Color::Green)
@@ -64,7 +72,7 @@ fn init_logger(log_dir: &Path) {
         .error(Color::Red);
 
     let console_config = fern::Dispatch::new()
-        .level(log::LevelFilter::Trace)
+        .level(*log_level)
         .format(move |out, message, record| {
             out.finish(format_args!(
                 "[{}] {}:{} {} {}",
@@ -118,8 +126,30 @@ fn init_logger(log_dir: &Path) {
 async fn main() -> Result<()> {
     let args = Args::parse();
 
+    // 引数によるログレベルの指定がない場合は、環境変数から取得する。
+    // ただし、環境変数もない場合は、error levelとする。
+    let rust_log_level = match std::env::var("RUST_LOG")
+        .unwrap_or_default()
+        .to_lowercase()
+        .as_str()
+    {
+        "trace" => Some(log::LevelFilter::Trace),
+        "debug" => Some(log::LevelFilter::Debug),
+        "info" => Some(log::LevelFilter::Info),
+        "warn" => Some(log::LevelFilter::Warn),
+        "error" => Some(log::LevelFilter::Error),
+        "off" => Some(log::LevelFilter::Off),
+        _ => None,
+    };
+    let log_level = match args.verbose {
+        0 => rust_log_level.unwrap_or(log::LevelFilter::Error),
+        1 => log::LevelFilter::Warn,
+        2 => log::LevelFilter::Info,
+        3 => log::LevelFilter::Debug,
+        _ => log::LevelFilter::Trace,
+    };
     let log_dir = determine_log_path().context("Failed to determine log path")?;
-    init_logger(&log_dir);
+    init_logger(&log_dir, &log_level);
 
     match args.subcommand {
         SubCommands::Daily(daily) => daily_command(daily).await?,
