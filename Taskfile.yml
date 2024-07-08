@@ -40,3 +40,7 @@ tasks:
       - npx prettier --write "**/*.json"
       - npx prettier --write "**/*.md"
       - npx prettier --write "**/*.{yml,yaml}"
+  docs:
+    desc: Generate document.
+    cmds:
+      - cargo doc --open
