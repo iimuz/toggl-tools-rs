@@ -59,8 +59,8 @@ pub async fn daily_command(daily: DailyCommand) -> Result<()> {
 }
 
 /// time etnryを表示する。
-fn show_time_entries(time_entries: &Vec<TimeEntry>) {
-    let mut sorted_entries = time_entries.clone();
+fn show_time_entries(time_entries: &[TimeEntry]) {
+    let mut sorted_entries = time_entries.to_vec();
     sorted_entries.sort_by_key(|entry| entry.start);
 
     for entry in sorted_entries {

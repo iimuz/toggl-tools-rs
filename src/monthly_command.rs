@@ -63,14 +63,15 @@ pub async fn monthly_command(monthly: MonthlyCommand) -> Result<()> {
     info!("Time entries retrieved successfully.");
 
     if monthly.daily {
-        let daily_time_entries = time_entries.iter().fold(HashMap::new(), |mut acc, entry| {
-            let start = entry.start.with_timezone(&Local).date_naive();
-            acc.entry(start).or_insert(vec![]).push(entry.clone());
-            acc
-        });
+        let daily_time_entries: HashMap<NaiveDate, Vec<TimeEntry>> =
+            time_entries.iter().fold(HashMap::new(), |mut acc, entry| {
+                let start = entry.start.with_timezone(&Local).date_naive();
+                acc.entry(start).or_default().push(entry.clone());
+                acc
+            });
         let mut sorted_time_entries = daily_time_entries
             .iter()
-            .map(|(date, entries)| (date.clone(), entries.clone()))
+            .map(|(date, entries)| (*date, entries.clone()))
             .collect::<Vec<_>>();
         sorted_time_entries.sort_by_key(|(date, _)| *date);
         sorted_time_entries.iter().try_for_each(|(date, entries)| {
@@ -116,7 +117,7 @@ fn parse_month(s: &str) -> Result<DateTime<Utc>> {
 ///
 /// 終了していないtime entryは集計対象外とする。
 fn calc_project_tag_duration(
-    time_entries: &Vec<TimeEntry>,
+    time_entries: &[TimeEntry],
 ) -> Result<HashMap<String, HashMap<String, i64>>> {
     let project_tag_duration: HashMap<String, HashMap<String, i64>> =
         time_entries
@@ -126,8 +127,8 @@ fn calc_project_tag_duration(
                     return accumurate;
                 }
 
-                let key = entry.project.clone().unwrap_or_else(|| String::new());
-                let project_entry = accumurate.entry(key).or_insert(HashMap::new());
+                let key = entry.project.clone().unwrap_or_default();
+                let project_entry = accumurate.entry(key).or_default();
                 entry.tags.iter().for_each(|tag| {
                     *project_entry.entry(tag.clone()).or_insert(0) += entry.duration;
                 });

@@ -2,7 +2,6 @@ use std::env;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use env_logger;
 
 mod daily_commnad;
 mod monthly_command;
