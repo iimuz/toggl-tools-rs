@@ -28,13 +28,15 @@ tasks:
     cmds:
       - cargo fmt -- --check
       - cargo clippy -- -D warnings
-      # - npx prettier --check "**/*.md"
-      # - npx prettier --check "**/*.{yml,yaml}"
-      # - npx cspell lint .
+      - npx prettier --check "**/*.json"
+      - npx prettier --check "**/*.md"
+      - npx prettier --check "**/*.{yml,yaml}"
+      - npx cspell lint . --no-progress
   format:
     desc: Format files.
     cmds:
       - cargo fmt
       - cargo fix
-      # - npx prettier --write "**/*.md"
-      # - npx prettier --write "**/*.{yml,yaml}"
+      - npx prettier --write "**/*.json"
+      - npx prettier --write "**/*.md"
+      - npx prettier --write "**/*.{yml,yaml}"

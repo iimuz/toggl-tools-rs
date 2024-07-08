@@ -58,7 +58,7 @@ pub async fn daily_command(daily: DailyCommand) -> Result<()> {
     Ok(())
 }
 
-/// time etnryを表示する。
+/// time entryを表示する。
 fn show_time_entries(time_entries: &[TimeEntry]) {
     let mut sorted_entries = time_entries.to_vec();
     sorted_entries.sort_by_key(|entry| entry.start);

@@ -120,20 +120,18 @@ fn calc_project_tag_duration(
     time_entries: &[TimeEntry],
 ) -> Result<HashMap<String, HashMap<String, i64>>> {
     let project_tag_duration: HashMap<String, HashMap<String, i64>> =
-        time_entries
-            .iter()
-            .fold(HashMap::new(), |mut accumurate, entry| {
-                if entry.stop.is_none() {
-                    return accumurate;
-                }
+        time_entries.iter().fold(HashMap::new(), |mut acc, entry| {
+            if entry.stop.is_none() {
+                return acc;
+            }
 
-                let key = entry.project.clone().unwrap_or_default();
-                let project_entry = accumurate.entry(key).or_default();
-                entry.tags.iter().for_each(|tag| {
-                    *project_entry.entry(tag.clone()).or_insert(0) += entry.duration;
-                });
-                accumurate
+            let key = entry.project.clone().unwrap_or_default();
+            let project_entry = acc.entry(key).or_default();
+            entry.tags.iter().for_each(|tag| {
+                *project_entry.entry(tag.clone()).or_insert(0) += entry.duration;
             });
+            acc
+        });
 
     Ok(project_tag_duration)
 }

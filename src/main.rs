@@ -3,12 +3,12 @@ use std::env;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 
-mod daily_commnad;
+mod daily_command;
 mod monthly_command;
 mod time_entry;
 mod toggl;
 
-use daily_commnad::{daily_command, DailyCommand};
+use daily_command::{daily_command, DailyCommand};
 use monthly_command::{monthly_command, MonthlyCommand};
 
 /// time entryを取得するためのCLIアプリケーション。
