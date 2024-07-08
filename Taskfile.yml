@@ -1,0 +1,40 @@
+version: "3"
+
+vars: {}
+dotenv: [".env"]
+
+tasks:
+  # 初期環境構築用タスク
+  init:
+    desc: Initialize project.
+    deps:
+      - clean
+    cmds:
+      - npm install
+  clean:
+    # rmは環境によって利用できないのでgit cleanを利用する。
+    desc: Clean files.
+    cmds:
+      - git clean -fdx node_modules
+      - git clean -fdx target
+
+  # linter, formatter
+  show:
+    desc: Show rust settings.
+    cmds:
+      - rustup show
+  lint:
+    desc: Lint files.
+    cmds:
+      - cargo fmt -- --check
+      - cargo clippy -- -D warnings
+      # - npx prettier --check "**/*.md"
+      # - npx prettier --check "**/*.{yml,yaml}"
+      # - npx cspell lint .
+  format:
+    desc: Format files.
+    cmds:
+      - cargo fmt
+      - cargo fix
+      # - npx prettier --write "**/*.md"
+      # - npx prettier --write "**/*.{yml,yaml}"
