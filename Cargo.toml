@@ -8,7 +8,8 @@ version = "0.1.0"
 anyhow = {version = "1.0", features = ["backtrace"]}
 chrono = {version = "0.4", features = ["serde"]}
 clap = {version = "3.0", features = ["derive"]}
-env_logger = "0.9"
+dirs = "5.0"
+fern = "0.6"
 log = "0.4"
 reqwest = {version = "0.11", features = ["json"]}
 serde = {version = "1.0", features = ["derive"]}
