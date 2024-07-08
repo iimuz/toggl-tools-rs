@@ -11,6 +11,7 @@ mod time_entry;
 mod toggl;
 
 use daily_command::{daily_command, DailyCommand};
+use fern::colors::{Color, ColoredLevelConfig};
 use monthly_command::{monthly_command, MonthlyCommand};
 
 /// time entryを取得するためのCLIアプリケーション。
@@ -55,12 +56,19 @@ fn determine_log_path() -> Result<PathBuf> {
     return Ok(log_dir);
 }
 fn init_logger(log_dir: &Path) {
+    let colors = ColoredLevelConfig::new()
+        .trace(Color::White)
+        .info(Color::Green)
+        .debug(Color::Cyan)
+        .warn(Color::Yellow)
+        .error(Color::Red);
+
     let console_config = fern::Dispatch::new()
         .level(log::LevelFilter::Trace)
-        .format(|out, message, record| {
+        .format(move |out, message, record| {
             out.finish(format_args!(
                 "[{}] {}:{} {} {}",
-                record.level(),
+                colors.color(record.level()),
                 record.file().unwrap(),
                 record.line().unwrap(),
                 chrono::Local::now().format("%Y-%m-%d %H:%M:%S"),
@@ -68,7 +76,6 @@ fn init_logger(log_dir: &Path) {
             ))
         })
         .chain(std::io::stderr());
-
     let path_app = log_dir.join("application.log");
     let application_config = fern::Dispatch::new()
         .level(log::LevelFilter::Info)
