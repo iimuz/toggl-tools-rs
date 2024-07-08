@@ -1,2 +1,5 @@
-# toggl-tools-rs
-A Rust CLI tool for managing timers and generating summaries using the Toggl API.
+# Toogls
+
+## Overview
+
+[Toggl](https://toggl.com/)のデータを取得して整形するツール群です。
