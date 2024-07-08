@@ -1,0 +1,6 @@
+[toolchain]
+channel = "1.79.0"
+components = []
+# default profile components: ["rustc", "rust-std", "cargo", "rust-docs", "rustfmt", "clippy"]
+profile = "default"
+targets = []
