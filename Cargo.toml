@@ -1,7 +1,7 @@
 [package]
 description = "A set of tools to interact with the Toggl API"
 edition = "2021"
-name = "toogls"
+name = "tooggls"
 version = "0.1.0"
 
 [dependencies]

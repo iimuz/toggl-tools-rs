@@ -62,3 +62,7 @@ tasks:
     desc: Reinstall project.
     cmds:
       - cargo install --path . --force
+  uninstall:
+    desc: Uninstall project.
+    cmds:
+      - cargo uninstall
