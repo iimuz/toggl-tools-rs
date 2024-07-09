@@ -63,14 +63,20 @@ fn determine_log_path() -> Result<PathBuf> {
 }
 
 /// ロガーを初期化する。
-fn init_logger(log_dir: &Path, log_level: &log::LevelFilter) {
+fn init_logger(log_dir: &Path, log_level: &log::LevelFilter) -> Result<()> {
+    std::fs::create_dir_all(log_dir).with_context(|| {
+        format!(
+            "Failed to create log directory: {}",
+            log_dir.to_string_lossy()
+        )
+    })?;
+
     let colors = ColoredLevelConfig::new()
         .trace(Color::White)
         .info(Color::Green)
         .debug(Color::Cyan)
         .warn(Color::Yellow)
         .error(Color::Red);
-
     let console_config = fern::Dispatch::new()
         .level(*log_level)
         .format(move |out, message, record| {
@@ -119,7 +125,9 @@ fn init_logger(log_dir: &Path, log_level: &log::LevelFilter) {
         .chain(application_config)
         .chain(emergency_config)
         .apply()
-        .unwrap();
+        .context("Failed to initialize logger")?;
+
+    Ok(())
 }
 
 #[tokio::main]
@@ -149,7 +157,7 @@ async fn main() -> Result<()> {
         _ => log::LevelFilter::Trace,
     };
     let log_dir = determine_log_path().context("Failed to determine log path")?;
-    init_logger(&log_dir, &log_level);
+    init_logger(&log_dir, &log_level).context("Failed to initialize logger")?;
 
     match args.subcommand {
         SubCommands::Daily(daily) => daily_command(daily).await?,

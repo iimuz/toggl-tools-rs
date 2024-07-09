@@ -44,3 +44,21 @@ tasks:
     desc: Generate document.
     cmds:
       - cargo doc --open
+
+  # test, build, run, deploy
+  build:
+    desc: Build project.
+    cmds:
+      - cargo build --release
+  run:
+    desc: Run project.
+    cmds:
+      - cargo run -- {{.CLI_ARGS}}
+  install:
+    desc: Install project.
+    cmds:
+      - cargo install --path .
+  reinstall:
+    desc: Reinstall project.
+    cmds:
+      - cargo install --path . --force
