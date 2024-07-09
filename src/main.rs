@@ -4,7 +4,6 @@ use std::{env, path::Path};
 
 use anyhow::{Context, Error, Result};
 use clap::{Parser, Subcommand};
-use dirs;
 
 mod daily_command;
 mod monthly_command;
@@ -60,7 +59,7 @@ fn determine_log_path() -> Result<PathBuf> {
         }
     });
 
-    return Ok(log_dir);
+    Ok(log_dir)
 }
 
 /// エラーをログ出力用にフォーマットする。
