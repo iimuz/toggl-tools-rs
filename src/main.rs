@@ -1,7 +1,8 @@
+use std::error::Error as StdError;
 use std::path::PathBuf;
 use std::{env, path::Path};
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Error, Result};
 use clap::{Parser, Subcommand};
 use dirs;
 
@@ -60,6 +61,26 @@ fn determine_log_path() -> Result<PathBuf> {
     });
 
     return Ok(log_dir);
+}
+
+/// エラーをログ出力用にフォーマットする。
+fn format_error_chain(error: &Error) -> String {
+    let mut result = String::new();
+    let mut current_error: &dyn StdError = error.as_ref();
+    let mut error_number = 1;
+
+    loop {
+        result.push_str(&format!("{}. {}\n", error_number, current_error));
+
+        error_number += 1;
+        match current_error.source() {
+            Some(source) => current_error = source,
+            None => break,
+        }
+    }
+    result.push_str(&format!("\nBacktrace:\n{}", error.backtrace()));
+
+    result
 }
 
 /// ロガーを初期化する。
@@ -157,11 +178,23 @@ async fn main() -> Result<()> {
         _ => log::LevelFilter::Trace,
     };
     let log_dir = determine_log_path().context("Failed to determine log path")?;
-    init_logger(&log_dir, &log_level).context("Failed to initialize logger")?;
+    if let Err(err) = init_logger(&log_dir, &log_level) {
+        let formatted_error = format_error_chain(&err);
+        log::error!("Failed to initialize logger:\n{}", formatted_error);
+        return Err(err);
+    }
 
-    match args.subcommand {
-        SubCommands::Daily(daily) => daily_command(daily).await?,
-        SubCommands::Monthly(monthly) => monthly_command(monthly).await?,
+    if let Err(err) = match args.subcommand {
+        SubCommands::Daily(daily) => daily_command(daily)
+            .await
+            .context("Failed to execute daily command"),
+        SubCommands::Monthly(monthly) => monthly_command(monthly)
+            .await
+            .context("Failed to execute monthly command"),
+    } {
+        let formatted_error = format_error_chain(&err);
+        log::error!("Failed to execute subcommand:\n{}", formatted_error);
+        return Err(err);
     }
 
     Ok(())
