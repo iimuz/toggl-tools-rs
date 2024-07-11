@@ -46,6 +46,10 @@ tasks:
       - cargo doc --open
 
   # test, build, run, deploy
+  test:
+    desc: Test project.
+    cmds:
+      - cargo test
   build:
     desc: Build project.
     cmds:
