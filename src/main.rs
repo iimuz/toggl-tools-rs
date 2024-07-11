@@ -10,9 +10,10 @@ mod monthly_command;
 mod time_entry;
 mod toggl;
 
-use daily_command::{daily_command, DailyCommand};
+use daily_command::{DailyArgs, DailyCommand};
 use fern::colors::{Color, ColoredLevelConfig};
 use monthly_command::{monthly_command, MonthlyCommand};
+use toggl::TogglClient;
 
 /// time entryを取得するためのCLIアプリケーション。
 ///
@@ -36,14 +37,14 @@ struct Args {
 }
 #[derive(Debug, Subcommand)]
 enum SubCommands {
-    Daily(DailyCommand),
+    Daily(DailyArgs),
     Monthly(MonthlyCommand),
 }
 
 /// ログファイルのパスを決定する。
 fn determine_log_path() -> Result<PathBuf> {
     // 環境変数からログパスを取得（設定されていない場合はNone）
-    let env_log_dir = env::var("TOOGLS_LOG_DIR").ok().map(PathBuf::from);
+    let env_log_dir = env::var("TOOGGLS_LOG_DIR").ok().map(PathBuf::from);
     let log_dir = env_log_dir.unwrap_or_else(|| {
         let app_name = env!("CARGO_PKG_NAME"); // Get the app name from cargo.toml
         let home_dir = dirs::home_dir().expect("Failed to determine home directory");
@@ -184,9 +185,14 @@ async fn main() -> Result<()> {
     }
 
     if let Err(err) = match args.subcommand {
-        SubCommands::Daily(daily) => daily_command(daily)
-            .await
-            .context("Failed to execute daily command"),
+        SubCommands::Daily(daily) => {
+            let toggl = TogglClient::new().context("Failed to create Toggl client")?;
+            let command = DailyCommand::new(&toggl);
+            command
+                .run(daily)
+                .await
+                .context("Failed to execute daily command")
+        }
         SubCommands::Monthly(monthly) => monthly_command(monthly)
             .await
             .context("Failed to execute monthly command"),

@@ -3,11 +3,11 @@ use chrono::{DateTime, Local, NaiveDate, TimeZone, Timelike, Utc};
 use log::info;
 
 use crate::time_entry::TimeEntry;
-use crate::toggl::TogglClient;
+use crate::toggl::TogglRepository;
 
 /// 日毎の情報を出力するためのサブコマンド。
 #[derive(Debug, clap::Args)]
-pub struct DailyCommand {
+pub struct DailyArgs {
     #[clap(
         short = 'd',
         long = "date",
@@ -17,45 +17,52 @@ pub struct DailyCommand {
     date: Option<DateTime<Utc>>,
 }
 
-/// `daily`サブコマンドの処理を行う。
-///
-/// Localタイムゾーンで指定された日付の00:00:00から始まる1日のタイムエントリーを取得し、表示する。
-/// 日付が指定されていない場合は、Localタイムゾーンで現在の日付を利用する。
-///
-/// # Arguments
-///
-/// * `daily` - `daily`サブコマンドの引数
-///
-/// # Examples
-///
-/// ```
-/// let daily = Daily { date: None };
-/// daily_command(daily).await.unwrap();
-/// ```
-pub async fn daily_command(daily: DailyCommand) -> Result<()> {
-    // Localのタイムゾーンで00:00:00から始まる1日とする
-    let date = daily.date.unwrap_or_else(|| Local::now().to_utc());
-    let local_date = date.with_timezone(&Local);
-    let start_at = local_date
-        .with_hour(0)
-        .context("Failed to set hour")?
-        .with_minute(0)
-        .context("Failed to set minute")?
-        .with_second(0)
-        .context("Failed to set second")?;
-    let end_at = start_at + chrono::Duration::days(1);
-    info!("Start at: {}, End at: {}", start_at, end_at);
+pub struct DailyCommand<'a, T: TogglRepository> {
+    toggl_client: &'a T,
+}
 
-    let client = TogglClient::new().context("Failed to new toggl client")?;
-    let time_entries = client
-        .read_time_entries(&start_at.to_utc(), &end_at.to_utc())
-        .await
-        .context("Failed to retrieve time entries")?;
+impl<'a, T: TogglRepository> DailyCommand<'a, T> {
+    /// 新しい`DailyCommand`を返す。
+    ///
+    /// # Arguments
+    /// * `toggl_client` - Toggl APIと通信するためのリポジトリ
+    pub fn new(toggl_client: &'a T) -> Self {
+        Self { toggl_client }
+    }
 
-    info!("Time entries retrieved successfully.");
-    show_time_entries(&time_entries);
+    /// `daily`サブコマンドの処理を行う。
+    ///
+    /// Localタイムゾーンで指定された日付の00:00:00から始まる1日のタイムエントリーを取得し、表示する。
+    /// 日付が指定されていない場合は、Localタイムゾーンで現在の日付を利用する。
+    ///
+    /// # Arguments
+    ///
+    /// * `daily` - `daily`サブコマンドの引数
+    pub async fn run(&self, daily: DailyArgs) -> Result<()> {
+        // Localのタイムゾーンで00:00:00から始まる1日とする
+        let date = daily.date.unwrap_or_else(|| Local::now().to_utc());
+        let local_date = date.with_timezone(&Local);
+        let start_at = local_date
+            .with_hour(0)
+            .context("Failed to set hour")?
+            .with_minute(0)
+            .context("Failed to set minute")?
+            .with_second(0)
+            .context("Failed to set second")?;
+        let end_at = start_at + chrono::Duration::days(1);
+        info!("Start at: {}, End at: {}", start_at, end_at);
 
-    Ok(())
+        let time_entries = self
+            .toggl_client
+            .read_time_entries(&start_at.to_utc(), &end_at.to_utc())
+            .await
+            .context("Failed to retrieve time entries")?;
+
+        info!("Time entries retrieved successfully.");
+        show_time_entries(&time_entries);
+
+        Ok(())
+    }
 }
 
 /// time entryを表示する。
@@ -91,4 +98,44 @@ fn parse_date(s: &str) -> Result<DateTime<Utc>> {
         .to_utc();
 
     Ok(datetime)
+}
+
+#[cfg(test)]
+mod tests {
+    use chrono::Local;
+
+    use super::DailyArgs;
+    use super::DailyCommand;
+    use crate::toggl::MockTogglRepository;
+
+    #[tokio::test]
+    async fn test_daily_command_no_date() {
+        let args = DailyArgs { date: None };
+        let mut toggl = MockTogglRepository::new();
+        toggl
+            .expect_read_time_entries()
+            .times(1)
+            .returning(|_, _| Ok(vec![]));
+
+        let command = DailyCommand::new(&toggl);
+        let result = command.run(args).await;
+
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_daily_command_with_date() {
+        let date = Local::now().to_utc();
+        let daily = DailyArgs { date: Some(date) };
+        let mut toggl = MockTogglRepository::new();
+        toggl
+            .expect_read_time_entries()
+            .times(1)
+            .returning(|_, _| Ok(vec![]));
+
+        let command = DailyCommand::new(&toggl);
+        let result = command.run(daily).await;
+
+        assert!(result.is_ok());
+    }
 }

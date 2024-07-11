@@ -1,4 +1,4 @@
-# Toogls
+# Tooggls
 
 ## Overview
 

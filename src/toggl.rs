@@ -3,27 +3,33 @@ use std::{collections::HashMap, env};
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use log::info;
+#[cfg(test)]
+use mockall::automock;
 use reqwest::{header::CONTENT_TYPE, Client};
 use serde::Deserialize;
 
 use crate::time_entry::TimeEntry;
 
-/// Toggl APIのレスポンスをデシリアライズするための構造体。
-#[derive(Debug, Deserialize)]
-struct TogglTimeEntry {
-    description: String,
-    project_id: Option<i64>,
-    start: String,
-    stop: Option<String>,
-    duration: i64,
-    tags: Vec<String>,
-}
-
-/// Toggl APIのプロジェクト情報をデシリアライズするための構造体。
-#[derive(Debug, Deserialize)]
-struct TogglProject {
-    id: i64,
-    name: String,
+#[cfg_attr(test, automock)]
+/// Toggl APIと通信するためのリポジトリ。
+pub trait TogglRepository {
+    /// 指定された日付のタイムエントリーを取得する。
+    ///
+    /// # Arguments
+    ///
+    /// * `start_at` - 取得するタイムエントリーの開始日時
+    /// * `end_at` - 取得するタイムエントリーの終了日時
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let time_entries = client.get_timer(&start_at, &end_at).await.unwrap();
+    /// ```
+    async fn read_time_entries(
+        &self,
+        start_at: &DateTime<Utc>,
+        end_at: &DateTime<Utc>,
+    ) -> Result<Vec<TimeEntry>>;
 }
 
 /// Toggl APIと通信するためのクライアント。
@@ -59,20 +65,10 @@ impl TogglClient {
             api_token: api_token.to_string(),
         })
     }
+}
 
-    /// 指定された日付のタイムエントリーを取得する。
-    ///
-    /// # Arguments
-    ///
-    /// * `start_at` - 取得するタイムエントリーの開始日時
-    /// * `end_at` - 取得するタイムエントリーの終了日時
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// let time_entries = client.get_timer(&start_at, &end_at).await.unwrap();
-    /// ```
-    pub async fn read_time_entries(
+impl TogglRepository for TogglClient {
+    async fn read_time_entries(
         &self,
         start_at: &DateTime<Utc>,
         end_at: &DateTime<Utc>,
@@ -131,7 +127,27 @@ impl TogglClient {
 
         Ok(time_entries)
     }
+}
 
+/// Toggl APIのレスポンスをデシリアライズするための構造体。
+#[derive(Debug, Deserialize)]
+struct TogglTimeEntry {
+    description: String,
+    project_id: Option<i64>,
+    start: String,
+    stop: Option<String>,
+    duration: i64,
+    tags: Vec<String>,
+}
+
+/// Toggl APIのプロジェクト情報をデシリアライズするための構造体。
+#[derive(Debug, Deserialize)]
+struct TogglProject {
+    id: i64,
+    name: String,
+}
+
+impl TogglClient {
     /// プロジェクト情報を取得する。
     async fn read_projects(&self) -> Result<Vec<TogglProject>> {
         let projects = self

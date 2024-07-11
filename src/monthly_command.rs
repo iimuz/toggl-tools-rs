@@ -6,6 +6,7 @@ use log::info;
 
 use crate::time_entry::TimeEntry;
 use crate::toggl::TogglClient;
+use crate::toggl::TogglRepository;
 
 /// 月毎の情報を出力するためのサブコマンド。
 #[derive(Debug, clap::Args)]

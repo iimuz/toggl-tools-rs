@@ -2,6 +2,7 @@
   "version": "0.2",
   "language": "en",
   "words": [
+    "automock",
     "chrono",
     "clippy",
     "cmds",
@@ -9,6 +10,7 @@
     "datetime",
     "dotenv",
     "iimuz",
+    "mockall",
     "reqwest",
     "rustc",
     "rustfmt",
@@ -16,7 +18,7 @@
     "serde",
     "timelike",
     "toggl",
-    "toogls"
+    "tooggls"
   ],
   "dictionaries": [],
   "ignorePaths": [
