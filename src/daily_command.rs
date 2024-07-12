@@ -38,9 +38,9 @@ impl<'a, T: TogglRepository> DailyCommand<'a, T> {
     /// # Arguments
     ///
     /// * `daily` - `daily`サブコマンドの引数
-    pub async fn run(&self, daily: DailyArgs) -> Result<()> {
+    pub async fn run(&self, daily: DailyArgs) -> Result<Vec<TimeEntry>> {
         // Localのタイムゾーンで00:00:00から始まる1日とする
-        let date = daily.date.unwrap_or_else(|| Utc::now());
+        let date = daily.date.unwrap_or_else(Utc::now);
         let local_date = date.with_timezone(&Local);
         let start_at = local_date
             .with_hour(0)
@@ -59,28 +59,8 @@ impl<'a, T: TogglRepository> DailyCommand<'a, T> {
             .context("Failed to retrieve time entries")?;
 
         info!("Time entries retrieved successfully.");
-        show_time_entries(&time_entries);
 
-        Ok(())
-    }
-}
-
-/// time entryを表示する。
-fn show_time_entries(time_entries: &[TimeEntry]) {
-    let mut sorted_entries = time_entries.to_vec();
-    sorted_entries.sort_by_key(|entry| entry.start);
-
-    for entry in sorted_entries {
-        let start_str = entry
-            .start
-            .with_timezone(&Local)
-            .format("%H:%M")
-            .to_string();
-        let end_str = entry
-            .stop
-            .map(|stop| stop.with_timezone(&Local).format("%H:%M").to_string())
-            .unwrap_or_else(|| "now".to_string());
-        println!("- {} ~ {}: {}", start_str, end_str, entry.description)
+        Ok(time_entries)
     }
 }
 

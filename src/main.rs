@@ -5,11 +5,13 @@ use std::{env, path::Path};
 use anyhow::{Context, Error, Result};
 use clap::{Parser, Subcommand};
 
+mod console;
 mod daily_command;
 mod monthly_command;
 mod time_entry;
 mod toggl;
 
+use console::{ConsoleMarkdownList, ConsolePresenter};
 use daily_command::{DailyArgs, DailyCommand};
 use fern::colors::{Color, ColoredLevelConfig};
 use monthly_command::{monthly_command, MonthlyCommand};
@@ -188,10 +190,17 @@ async fn main() -> Result<()> {
         SubCommands::Daily(daily) => {
             let toggl = TogglClient::new().context("Failed to create Toggl client")?;
             let command = DailyCommand::new(&toggl);
-            command
+            let output = std::io::stdout();
+            let mut output = output.lock();
+            let mut presenter = ConsoleMarkdownList::new(&mut output);
+            let time_entries = command
                 .run(daily)
                 .await
-                .context("Failed to execute daily command")
+                .context("Failed to execute daily command")?;
+            presenter
+                .show_time_entries(time_entries.as_ref())
+                .context("Failed to show time entries")?;
+            Ok(())
         }
         SubCommands::Monthly(monthly) => monthly_command(monthly)
             .await
