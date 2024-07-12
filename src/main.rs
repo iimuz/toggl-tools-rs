@@ -7,6 +7,7 @@ use clap::{Parser, Subcommand};
 
 mod console;
 mod daily_command;
+mod datetime;
 mod monthly_command;
 mod time_entry;
 mod toggl;
@@ -188,16 +189,12 @@ async fn main() -> Result<()> {
 
     if let Err(err) = match args.subcommand {
         SubCommands::Daily(daily) => {
-            let toggl = TogglClient::new().context("Failed to create Toggl client")?;
-            let command = DailyCommand::new(&toggl);
-            let output = std::io::stdout();
-            let mut output = output.lock();
-            let mut presenter = ConsoleMarkdownList::new(&mut output);
-            let time_entries = command
-                .run(daily)
-                .await
-                .context("Failed to execute daily command")?;
-            presenter
+            let time_entries =
+                DailyCommand::new(&TogglClient::new().context("Failed to create Toggl client")?)
+                    .run(daily)
+                    .await
+                    .context("Failed to execute daily command")?;
+            ConsoleMarkdownList::new(&mut std::io::stdout().lock())
                 .show_time_entries(time_entries.as_ref())
                 .context("Failed to show time entries")?;
             Ok(())

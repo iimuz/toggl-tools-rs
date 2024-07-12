@@ -2,6 +2,7 @@ use anyhow::{Context, Result};
 use chrono::{DateTime, Local, NaiveDate, TimeZone, Timelike, Utc};
 use log::info;
 
+use crate::datetime::now;
 use crate::time_entry::TimeEntry;
 use crate::toggl::TogglRepository;
 
@@ -40,7 +41,7 @@ impl<'a, T: TogglRepository> DailyCommand<'a, T> {
     /// * `daily` - `daily`サブコマンドの引数
     pub async fn run(&self, daily: DailyArgs) -> Result<Vec<TimeEntry>> {
         // Localのタイムゾーンで00:00:00から始まる1日とする
-        let date = daily.date.unwrap_or_else(Utc::now);
+        let date = daily.date.unwrap_or_else(now);
         let local_date = date.with_timezone(&Local);
         let start_at = local_date
             .with_hour(0)
@@ -82,7 +83,7 @@ fn parse_date(s: &str) -> Result<DateTime<Utc>> {
 
 #[cfg(test)]
 mod tests {
-    use chrono::{DateTime, Local, TimeZone};
+    use chrono::{DateTime, Utc};
     use rstest::rstest;
 
     use super::DailyArgs;
@@ -106,13 +107,10 @@ mod tests {
 
     #[tokio::test]
     #[rstest]
-    #[case(Local::now())]
-    #[case(Local.with_ymd_and_hms(2000, 1, 1, 0, 0, 0).unwrap())]
-    async fn test_daily_command_with_date(#[case] date: DateTime<Local>) {
-        let date_utc = date.to_utc();
-        let daily = DailyArgs {
-            date: Some(date_utc),
-        };
+    #[case(DateTime::parse_from_rfc3339("2000-01-01T00:00:00+00:00").unwrap().to_utc())]
+    #[case(DateTime::parse_from_rfc3339("2024-01-01T00:00:00+00:00").unwrap().to_utc())]
+    async fn test_daily_command_with_date(#[case] date: DateTime<Utc>) {
+        let daily = DailyArgs { date: Some(date) };
         let mut toggl = MockTogglRepository::new();
         toggl
             .expect_read_time_entries()
