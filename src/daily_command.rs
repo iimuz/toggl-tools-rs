@@ -40,7 +40,7 @@ impl<'a, T: TogglRepository> DailyCommand<'a, T> {
     /// * `daily` - `daily`サブコマンドの引数
     pub async fn run(&self, daily: DailyArgs) -> Result<()> {
         // Localのタイムゾーンで00:00:00から始まる1日とする
-        let date = daily.date.unwrap_or_else(|| Local::now().to_utc());
+        let date = daily.date.unwrap_or_else(|| Utc::now());
         let local_date = date.with_timezone(&Local);
         let start_at = local_date
             .with_hour(0)
@@ -102,7 +102,8 @@ fn parse_date(s: &str) -> Result<DateTime<Utc>> {
 
 #[cfg(test)]
 mod tests {
-    use chrono::Local;
+    use chrono::{DateTime, Local, TimeZone};
+    use rstest::rstest;
 
     use super::DailyArgs;
     use super::DailyCommand;
@@ -124,9 +125,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_daily_command_with_date() {
-        let date = Local::now().to_utc();
-        let daily = DailyArgs { date: Some(date) };
+    #[rstest]
+    #[case(Local::now())]
+    #[case(Local.with_ymd_and_hms(2000, 1, 1, 0, 0, 0).unwrap())]
+    async fn test_daily_command_with_date(#[case] date: DateTime<Local>) {
+        let date_utc = date.to_utc();
+        let daily = DailyArgs {
+            date: Some(date_utc),
+        };
         let mut toggl = MockTogglRepository::new();
         toggl
             .expect_read_time_entries()

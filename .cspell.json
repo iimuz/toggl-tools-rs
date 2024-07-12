@@ -12,6 +12,7 @@
     "iimuz",
     "mockall",
     "reqwest",
+    "rstest",
     "rustc",
     "rustfmt",
     "rustup",
