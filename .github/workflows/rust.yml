@@ -20,11 +20,11 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-      - name: Run unit tests
-        run: cargo test --verbose
       - name: Check formatting
         run: cargo fmt --all --check
       - name: Lint with clippy
         run: cargo clippy --all-features --all-targets -- -D warnings
+      - name: Run unit tests
+        run: cargo test --verbose
       - name: Build test
         run: cargo build --release --verbose
