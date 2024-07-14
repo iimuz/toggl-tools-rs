@@ -19,6 +19,6 @@ jobs:
       - name: Check json formatting
         run: npx prettier --check "**/*.json"
       - name: Check markdown formatting
-        run: npx prettier --check "**/*.markdown"
+        run: npx prettier --check "**/*.md"
       - name: Check yml formatting
         run: npx prettier --check "**/*.{yml,yaml}"
