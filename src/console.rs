@@ -69,19 +69,23 @@ mod tests {
         let mut writer = Vec::new();
         let mut presenter = ConsoleMarkdownList::new(&mut writer);
 
+        let entry1_start_utc = Utc.with_ymd_and_hms(2021, 1, 1, 10, 0, 0).unwrap();
+        let entry1_stop_utc = Utc.with_ymd_and_hms(2021, 1, 1, 11, 0, 0).unwrap();
+        let entry2_start_utc = Utc.with_ymd_and_hms(2021, 1, 1, 12, 0, 0).unwrap();
+        let entry2_stop_utc = Utc.with_ymd_and_hms(2021, 1, 1, 13, 0, 0).unwrap();
         let time_entries = vec![
             TimeEntry {
                 description: "entry1".to_string(),
-                start: Utc.with_ymd_and_hms(2021, 1, 1, 10, 0, 0).unwrap(),
-                stop: Some(Utc.with_ymd_and_hms(2021, 1, 1, 11, 0, 0).unwrap()),
+                start: entry1_start_utc,
+                stop: Some(entry1_stop_utc),
                 duration: 3600,
                 project: None,
                 tags: vec![],
             },
             TimeEntry {
                 description: "entry2".to_string(),
-                start: Utc.with_ymd_and_hms(2021, 1, 1, 12, 0, 0).unwrap(),
-                stop: Some(Utc.with_ymd_and_hms(2021, 1, 1, 13, 0, 0).unwrap()),
+                start: entry2_start_utc,
+                stop: Some(entry2_stop_utc),
                 duration: 3600,
                 project: None,
                 tags: vec![],
@@ -90,7 +94,25 @@ mod tests {
 
         presenter.show_time_entries(&time_entries)?;
 
-        let expected = "- 19:00 ~ 20:00: entry1\n- 21:00 ~ 22:00: entry2\n";
+        let entry1_start_expected = entry1_start_utc
+            .with_timezone(&chrono::Local)
+            .format("%H:%M");
+        let entry1_stop_expected = entry1_stop_utc
+            .with_timezone(&chrono::Local)
+            .format("%H:%M");
+        let entry2_start_expected = entry2_start_utc
+            .with_timezone(&chrono::Local)
+            .format("%H:%M");
+        let entry2_stop_expected = entry2_stop_utc
+            .with_timezone(&chrono::Local)
+            .format("%H:%M");
+        let expected = format!(
+            "- {} ~ {}: entry1\n- {} ~ {}: entry2\n",
+            entry1_start_expected,
+            entry1_stop_expected,
+            entry2_start_expected,
+            entry2_stop_expected
+        );
         assert_eq!(String::from_utf8(writer)?, expected);
 
         Ok(())
@@ -118,19 +140,23 @@ mod tests {
         let mut writer = Vec::new();
         let mut presenter = ConsoleMarkdownList::new(&mut writer);
 
+        let entry1_start_utc = Utc.with_ymd_and_hms(2021, 1, 1, 13, 0, 0).unwrap();
+        let entry1_stop_utc = Utc.with_ymd_and_hms(2021, 1, 1, 14, 0, 0).unwrap();
+        let entry2_start_utc = Utc.with_ymd_and_hms(2021, 1, 1, 12, 0, 0).unwrap();
+        let entry2_stop_utc = Utc.with_ymd_and_hms(2021, 1, 1, 13, 0, 0).unwrap();
         let time_entries = vec![
             TimeEntry {
                 description: "entry1".to_string(),
-                start: Utc.with_ymd_and_hms(2021, 1, 1, 13, 0, 0).unwrap(),
-                stop: Some(Utc.with_ymd_and_hms(2021, 1, 1, 14, 0, 0).unwrap()),
+                start: entry1_start_utc,
+                stop: Some(entry1_stop_utc),
                 duration: 3600,
                 project: None,
                 tags: vec![],
             },
             TimeEntry {
                 description: "entry2".to_string(),
-                start: Utc.with_ymd_and_hms(2021, 1, 1, 12, 0, 0).unwrap(),
-                stop: Some(Utc.with_ymd_and_hms(2021, 1, 1, 13, 0, 0).unwrap()),
+                start: entry2_start_utc,
+                stop: Some(entry2_stop_utc),
                 duration: 3600,
                 project: None,
                 tags: vec![],
@@ -151,19 +177,23 @@ mod tests {
         let mut writer = Vec::new();
         let mut presenter = ConsoleMarkdownList::new(&mut writer);
 
+        let entry1_start_utc = Utc.with_ymd_and_hms(2021, 1, 1, 3, 0, 0).unwrap();
+        let entry1_stop_utc = Utc.with_ymd_and_hms(2021, 1, 1, 5, 0, 0).unwrap();
+        let entry2_start_utc = Utc.with_ymd_and_hms(2021, 1, 1, 3, 0, 0).unwrap();
+        let entry2_stop_utc = Utc.with_ymd_and_hms(2021, 1, 1, 4, 0, 0).unwrap();
         let time_entries = vec![
             TimeEntry {
                 description: "entry1".to_string(),
-                start: Utc.with_ymd_and_hms(2021, 1, 1, 3, 0, 0).unwrap(),
-                stop: Some(Utc.with_ymd_and_hms(2021, 1, 1, 5, 0, 0).unwrap()),
+                start: entry1_start_utc,
+                stop: Some(entry1_stop_utc),
                 duration: 3600,
                 project: None,
                 tags: vec![],
             },
             TimeEntry {
                 description: "entry2".to_string(),
-                start: Utc.with_ymd_and_hms(2021, 1, 1, 3, 0, 0).unwrap(),
-                stop: Some(Utc.with_ymd_and_hms(2021, 1, 1, 4, 0, 0).unwrap()),
+                start: entry2_start_utc,
+                stop: Some(entry2_stop_utc),
                 duration: 3600,
                 project: None,
                 tags: vec![],
