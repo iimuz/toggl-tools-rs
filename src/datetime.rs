@@ -15,7 +15,7 @@ pub mod mock_datetime {
     use super::Utc;
 
     thread_local! {
-        static MOCK_TIME: RefCell<Option<DateTime<Utc>>> = RefCell::new(None);
+        static MOCK_TIME: RefCell<Option<DateTime<Utc>>> = const { RefCell::new(None) };
     }
 
     /// モック時間を取得する。
