@@ -94,7 +94,7 @@ mod tests {
     #[case::none_date_to_now(None)]
     #[case::specific_date(Some(DateTime::parse_from_rfc3339("2024-01-01T00:00:00+00:00").unwrap().to_utc()))]
     async fn test_daily_command_no_date(#[case] date: Option<DateTime<Utc>>) {
-        let args = DailyArgs { date: date };
+        let args = DailyArgs { date };
         let mut toggl = MockTogglRepository::new();
 
         let now = date.unwrap_or(Utc::now());

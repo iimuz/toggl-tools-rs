@@ -1,0 +1,30 @@
+name: rust
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Check formatting
+        run: cargo fmt --all --check
+      - name: Lint with clippy
+        run: cargo clippy --all-features --all-targets -- -D warnings
+      - name: Run unit tests
+        run: cargo test --verbose
+      - name: Build test
+        run: cargo build --release --verbose

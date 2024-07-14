@@ -57,124 +57,95 @@ impl<'a, W: Write> ConsolePresenter for ConsoleMarkdownList<'a, W> {
 
 #[cfg(test)]
 mod tests {
+    use chrono::{Local, TimeZone, Utc};
+    use rstest::rstest;
+
     use super::ConsoleMarkdownList;
     use super::ConsolePresenter;
     use crate::time_entry::TimeEntry;
-    use anyhow::Result;
-    use chrono::{TimeZone, Utc};
 
     /// 正常系のテスト。
-    #[test]
-    fn test_show_time_entries() -> Result<()> {
+    #[rstest]
+    #[case::no_entry(&[], "")]
+    #[case::single(
+        &[dummy_entry(1)],
+        &expected_output(&dummy_entry(1)),
+    )]
+    #[case::no_stop(
+        &[dummy_entry(4)],
+        &expected_output(&dummy_entry(4)),
+    )]
+    #[case::double(
+        &[dummy_entry(1), dummy_entry(2)],
+        &[expected_output(&dummy_entry(1)),expected_output(&dummy_entry(2))].join(""),
+    )]
+    #[case::sort_with_start_time(
+        &[dummy_entry(2), dummy_entry(1)],
+        &[expected_output(&dummy_entry(1)),expected_output(&dummy_entry(2))].join(""),
+    )]
+    #[case::no_sort_with_same_start_time(
+        &[dummy_entry(3), dummy_entry(2)],
+        &[expected_output(&dummy_entry(3)),expected_output(&dummy_entry(2))].join(""),
+    )]
+    fn test_show_time_entries(#[case] input: &[TimeEntry], #[case] expected: &str) {
         let mut writer = Vec::new();
         let mut presenter = ConsoleMarkdownList::new(&mut writer);
 
-        let time_entries = vec![
-            TimeEntry {
-                description: "entry1".to_string(),
-                start: Utc.with_ymd_and_hms(2021, 1, 1, 10, 0, 0).unwrap(),
-                stop: Some(Utc.with_ymd_and_hms(2021, 1, 1, 11, 0, 0).unwrap()),
-                duration: 3600,
-                project: None,
-                tags: vec![],
-            },
-            TimeEntry {
-                description: "entry2".to_string(),
-                start: Utc.with_ymd_and_hms(2021, 1, 1, 12, 0, 0).unwrap(),
-                stop: Some(Utc.with_ymd_and_hms(2021, 1, 1, 13, 0, 0).unwrap()),
-                duration: 3600,
-                project: None,
-                tags: vec![],
-            },
-        ];
+        presenter.show_time_entries(input).unwrap();
 
-        presenter.show_time_entries(&time_entries)?;
-
-        let expected = "- 19:00 ~ 20:00: entry1\n- 21:00 ~ 22:00: entry2\n";
-        assert_eq!(String::from_utf8(writer)?, expected);
-
-        Ok(())
+        assert_eq!(String::from_utf8(writer).unwrap(), expected);
     }
 
-    /// 入力が空の場合は何も出力せず正常終了。
-    #[test]
-    fn test_show_no_time_entries() -> Result<()> {
-        let mut writer = Vec::new();
-        let mut presenter = ConsoleMarkdownList::new(&mut writer);
-
-        let time_entries = vec![];
-
-        presenter.show_time_entries(&time_entries)?;
-
-        let expected = "";
-        assert_eq!(String::from_utf8(writer)?, expected);
-
-        Ok(())
-    }
-
-    /// 結果が時刻でソートされることを確認する。
-    #[test]
-    fn test_show_sorted_time_entries() -> Result<()> {
-        let mut writer = Vec::new();
-        let mut presenter = ConsoleMarkdownList::new(&mut writer);
-
-        let time_entries = vec![
-            TimeEntry {
+    /// テスト用にダミーのTimeEntryを作成する。
+    fn dummy_entry(pattern: u8) -> TimeEntry {
+        match pattern {
+            1 => TimeEntry {
                 description: "entry1".to_string(),
-                start: Utc.with_ymd_and_hms(2021, 1, 1, 13, 0, 0).unwrap(),
-                stop: Some(Utc.with_ymd_and_hms(2021, 1, 1, 14, 0, 0).unwrap()),
-                duration: 3600,
-                project: None,
-                tags: vec![],
+                start: Utc.with_ymd_and_hms(2021, 1, 1, 1, 0, 0).unwrap(),
+                stop: Some(Utc.with_ymd_and_hms(2021, 1, 1, 2, 0, 0).unwrap()),
+                duration: 3600, // 利用しないのでなんでも良い
+                project: None,  // 利用しないのでなんでも良い
+                tags: vec![],   // 利用しないのでなんでも良い
             },
-            TimeEntry {
-                description: "entry2".to_string(),
-                start: Utc.with_ymd_and_hms(2021, 1, 1, 12, 0, 0).unwrap(),
-                stop: Some(Utc.with_ymd_and_hms(2021, 1, 1, 13, 0, 0).unwrap()),
-                duration: 3600,
-                project: None,
-                tags: vec![],
-            },
-        ];
-
-        presenter.show_time_entries(&time_entries)?;
-
-        let expected = "- 21:00 ~ 22:00: entry2\n- 22:00 ~ 23:00: entry1\n";
-        assert_eq!(String::from_utf8(writer)?, expected);
-
-        Ok(())
-    }
-
-    /// 同一の開始時刻の場合は、ソートされないことを確認。
-    #[test]
-    fn test_show_same_time_entries() -> Result<()> {
-        let mut writer = Vec::new();
-        let mut presenter = ConsoleMarkdownList::new(&mut writer);
-
-        let time_entries = vec![
-            TimeEntry {
-                description: "entry1".to_string(),
-                start: Utc.with_ymd_and_hms(2021, 1, 1, 3, 0, 0).unwrap(),
-                stop: Some(Utc.with_ymd_and_hms(2021, 1, 1, 5, 0, 0).unwrap()),
-                duration: 3600,
-                project: None,
-                tags: vec![],
-            },
-            TimeEntry {
+            2 => TimeEntry {
                 description: "entry2".to_string(),
                 start: Utc.with_ymd_and_hms(2021, 1, 1, 3, 0, 0).unwrap(),
                 stop: Some(Utc.with_ymd_and_hms(2021, 1, 1, 4, 0, 0).unwrap()),
-                duration: 3600,
-                project: None,
-                tags: vec![],
+                duration: 3600, // 利用しないのでなんでも良い
+                project: None,  // 利用しないのでなんでも良い
+                tags: vec![],   // 利用しないのでなんでも良い
             },
-        ];
+            3 => TimeEntry {
+                description: "entry3".to_string(),
+                start: Utc.with_ymd_and_hms(2021, 1, 1, 3, 0, 0).unwrap(),
+                stop: Some(Utc.with_ymd_and_hms(2021, 1, 1, 5, 0, 0).unwrap()),
+                duration: 7200, // 利用しないのでなんでも良い
+                project: None,  // 利用しないのでなんでも良い
+                tags: vec![],   // 利用しないのでなんでも良い
+            },
+            4 => TimeEntry {
+                description: "entry3".to_string(),
+                start: Utc.with_ymd_and_hms(2021, 1, 1, 5, 0, 0).unwrap(),
+                stop: None,
+                duration: 7200, // 利用しないのでなんでも良い
+                project: None,  // 利用しないのでなんでも良い
+                tags: vec![],   // 利用しないのでなんでも良い
+            },
+            _ => panic!("Invalid pattern: {}", pattern),
+        }
+    }
 
-        presenter.show_time_entries(&time_entries)?;
-
-        let expected = "- 12:00 ~ 14:00: entry1\n- 12:00 ~ 13:00: entry2\n";
-        assert_eq!(String::from_utf8(writer)?, expected);
-
-        Ok(())
+    /// テスト用に出力の1 time entryに対する期待値の文字列を作成する。
+    fn expected_output(entry: &TimeEntry) -> String {
+        let start_str = entry
+            .start
+            .with_timezone(&Local)
+            .format("%H:%M")
+            .to_string();
+        let end_str = entry
+            .stop
+            .map(|stop| stop.with_timezone(&Local).format("%H:%M").to_string())
+            .unwrap_or_else(|| "now".to_string());
+        format!("- {} ~ {}: {}\n", start_str, end_str, entry.description)
     }
 }

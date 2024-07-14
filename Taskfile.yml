@@ -26,8 +26,8 @@ tasks:
   lint:
     desc: Lint files.
     cmds:
-      - cargo fmt -- --check
-      - cargo clippy -- -D warnings
+      - cargo fmt --all --check
+      - cargo clippy --all-features --all-targets -- -D warnings
       - npx prettier --check "**/*.json"
       - npx prettier --check "**/*.md"
       - npx prettier --check "**/*.{yml,yaml}"
