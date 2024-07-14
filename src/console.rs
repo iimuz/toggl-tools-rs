@@ -63,6 +63,7 @@ mod tests {
     use anyhow::Result;
     use chrono::{TimeZone, Utc};
 
+    /// 正常系のテスト。
     #[test]
     fn test_show_time_entries() -> Result<()> {
         let mut writer = Vec::new();
@@ -90,6 +91,88 @@ mod tests {
         presenter.show_time_entries(&time_entries)?;
 
         let expected = "- 19:00 ~ 20:00: entry1\n- 21:00 ~ 22:00: entry2\n";
+        assert_eq!(String::from_utf8(writer)?, expected);
+
+        Ok(())
+    }
+
+    /// 入力が空の場合は何も出力せず正常終了。
+    #[test]
+    fn test_show_no_time_entries() -> Result<()> {
+        let mut writer = Vec::new();
+        let mut presenter = ConsoleMarkdownList::new(&mut writer);
+
+        let time_entries = vec![];
+
+        presenter.show_time_entries(&time_entries)?;
+
+        let expected = "";
+        assert_eq!(String::from_utf8(writer)?, expected);
+
+        Ok(())
+    }
+
+    /// 結果が時刻でソートされることを確認する。
+    #[test]
+    fn test_show_sorted_time_entries() -> Result<()> {
+        let mut writer = Vec::new();
+        let mut presenter = ConsoleMarkdownList::new(&mut writer);
+
+        let time_entries = vec![
+            TimeEntry {
+                description: "entry1".to_string(),
+                start: Utc.with_ymd_and_hms(2021, 1, 1, 13, 0, 0).unwrap(),
+                stop: Some(Utc.with_ymd_and_hms(2021, 1, 1, 14, 0, 0).unwrap()),
+                duration: 3600,
+                project: None,
+                tags: vec![],
+            },
+            TimeEntry {
+                description: "entry2".to_string(),
+                start: Utc.with_ymd_and_hms(2021, 1, 1, 12, 0, 0).unwrap(),
+                stop: Some(Utc.with_ymd_and_hms(2021, 1, 1, 13, 0, 0).unwrap()),
+                duration: 3600,
+                project: None,
+                tags: vec![],
+            },
+        ];
+
+        presenter.show_time_entries(&time_entries)?;
+
+        let expected = "- 21:00 ~ 22:00: entry2\n- 22:00 ~ 23:00: entry1\n";
+        assert_eq!(String::from_utf8(writer)?, expected);
+
+        Ok(())
+    }
+
+    /// 同一の開始時刻の場合は、ソートされないことを確認。
+    #[test]
+    fn test_show_same_time_entries() -> Result<()> {
+        let mut writer = Vec::new();
+        let mut presenter = ConsoleMarkdownList::new(&mut writer);
+
+        let time_entries = vec![
+            TimeEntry {
+                description: "entry1".to_string(),
+                start: Utc.with_ymd_and_hms(2021, 1, 1, 3, 0, 0).unwrap(),
+                stop: Some(Utc.with_ymd_and_hms(2021, 1, 1, 5, 0, 0).unwrap()),
+                duration: 3600,
+                project: None,
+                tags: vec![],
+            },
+            TimeEntry {
+                description: "entry2".to_string(),
+                start: Utc.with_ymd_and_hms(2021, 1, 1, 3, 0, 0).unwrap(),
+                stop: Some(Utc.with_ymd_and_hms(2021, 1, 1, 4, 0, 0).unwrap()),
+                duration: 3600,
+                project: None,
+                tags: vec![],
+            },
+        ];
+
+        presenter.show_time_entries(&time_entries)?;
+
+        let expected = "- 12:00 ~ 14:00: entry1\n- 12:00 ~ 13:00: entry2\n";
         assert_eq!(String::from_utf8(writer)?, expected);
 
         Ok(())
