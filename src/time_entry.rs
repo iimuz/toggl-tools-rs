@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct TimeEntry {
     pub start: DateTime<Utc>,
     pub stop: Option<DateTime<Utc>>,
