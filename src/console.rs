@@ -1,18 +1,22 @@
 use std::io::Write;
 
 use anyhow::{Context, Result};
-use chrono::Local;
+use chrono::{DateTime, Local, Utc};
 
-use crate::time_entry::TimeEntry;
+use crate::time_entry::{ProjectDurations, TimeEntry};
 
 /// Consoleにtime entryを表示するためのtrait。
 pub trait ConsolePresenter {
     /// タイムエントリーを表示する。
-    ///
-    /// # Arguments
-    ///
-    /// * `time_entries` - 表示するタイムエントリー
     fn show_time_entries(&mut self, time_entries: &[TimeEntry]) -> Result<()>;
+
+    // project, tagごとの集計結果を表示する。
+    fn show_durations(&mut self, durations: &ProjectDurations) -> Result<()>;
+    // 複数の集計結果を表示する。
+    fn show_multi_durations(
+        &mut self,
+        durations: &[(DateTime<Utc>, Result<ProjectDurations>)],
+    ) -> Result<()>;
 }
 
 /// タイムエントリーをMarkdownのlist形式で表示する。
@@ -50,6 +54,47 @@ impl<'a, W: Write> ConsolePresenter for ConsoleMarkdownList<'a, W> {
             )
             .with_context(|| format!("Failed to write time entry: {:?}", entry))?;
         }
+
+        Ok(())
+    }
+
+    // project, tagごとの集計結果を表示する。
+    fn show_durations(&mut self, durations: &ProjectDurations) -> Result<()> {
+        durations.iter().for_each(|(project, tags)| {
+            println!("- {}", project);
+            tags.iter().for_each(|(tag, duration)| {
+                let duration_hours = *duration as f64 / 3600.0;
+                println!("  - {}: {:.2}", tag, duration_hours);
+            });
+        });
+
+        Ok(())
+    }
+
+    // project, tagごとの集計結果を表示する。
+    fn show_multi_durations(
+        &mut self,
+        durations: &[(DateTime<Utc>, Result<ProjectDurations>)],
+    ) -> Result<()> {
+        let mut sorted_durations = durations.iter().collect::<Vec<_>>();
+        sorted_durations.sort_by_key(|(date, _)| date);
+        sorted_durations
+            .iter()
+            .try_for_each(|(date, duration)| {
+                let local_date = date.with_timezone(&Local);
+                println!("## {}", local_date);
+                match duration {
+                    Ok(d) => self.show_durations(d),
+                    Err(err) => {
+                        println!("Failed to show durations: {}", err);
+                        Ok(())
+                    }
+                }
+                .context("Failed to show durations")?;
+
+                Ok::<_, anyhow::Error>(())
+            })
+            .context("Failed to show multi durations")?;
 
         Ok(())
     }

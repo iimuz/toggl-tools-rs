@@ -2,7 +2,7 @@ use std::error::Error as StdError;
 use std::path::PathBuf;
 use std::{env, path::Path};
 
-use anyhow::{Context, Error, Result};
+use anyhow::{Context, Error, Ok, Result};
 use clap::{Parser, Subcommand};
 
 mod console;
@@ -15,7 +15,7 @@ mod toggl;
 use console::{ConsoleMarkdownList, ConsolePresenter};
 use daily_command::{DailyArgs, DailyCommand};
 use fern::colors::{Color, ColoredLevelConfig};
-use monthly_command::{monthly_command, MonthlyCommand};
+use monthly_command::{MonthlyArgs, MonthlyCommand};
 use toggl::TogglClient;
 
 /// time entryを取得するためのCLIアプリケーション。
@@ -41,7 +41,7 @@ struct Args {
 #[derive(Debug, Subcommand)]
 enum SubCommands {
     Daily(DailyArgs),
-    Monthly(MonthlyCommand),
+    Monthly(MonthlyArgs),
 }
 
 /// ログファイルのパスを決定する。
@@ -199,9 +199,31 @@ async fn main() -> Result<()> {
                 .context("Failed to show time entries")?;
             Ok(())
         }
-        SubCommands::Monthly(monthly) => monthly_command(monthly)
-            .await
-            .context("Failed to execute monthly command"),
+        SubCommands::Monthly(monthly) => {
+            let toggl_client = TogglClient::new().context("Failed to create Toggl client")?;
+            let client = MonthlyCommand::new(&toggl_client);
+            if monthly.get_daily() {
+                let durations = client
+                    .run_daily_duration(monthly)
+                    .await
+                    .context("Failed to execute monthly command")?;
+                ConsoleMarkdownList::new(&mut std::io::stdout().lock())
+                    .show_multi_durations(&durations)
+                    .context("Failed to show durations")?;
+
+                return Ok(());
+            }
+
+            let durations = client
+                .run_monthly_duration(monthly)
+                .await
+                .context("Failed to execute monthly command")?;
+            ConsoleMarkdownList::new(&mut std::io::stdout().lock())
+                .show_durations(&durations)
+                .context("Failed to show durations")?;
+
+            Ok(())
+        }
     } {
         let formatted_error = format_error_chain(&err);
         log::error!("Failed to execute subcommand:\n{}", formatted_error);
