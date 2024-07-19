@@ -167,19 +167,24 @@ impl TogglClient {
 
 #[cfg(test)]
 mod tests {
+    use std::env;
+    use std::sync::Mutex;
     use std::vec;
-
-    use anyhow::Result;
-    use base64::prelude::*;
-    use chrono::DateTime;
-    use mockito::Server;
-    use rstest::rstest;
 
     use super::TogglClient;
     use super::TogglProject;
     use super::TogglRepository;
     use super::TogglTimeEntry;
     use crate::time_entry::TimeEntry;
+    use anyhow::Result;
+    use base64::prelude::*;
+    use chrono::DateTime;
+    use mockito::Server;
+    use once_cell::sync::Lazy;
+    use rstest::rstest;
+
+    // 環境変数を書き換えるときに並行処理した場合用のmutex
+    static ENV_MUTEX: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 
     impl TogglClient {
         fn new_test(url: &str, api_token: &str) -> Result<Self> {
@@ -189,6 +194,20 @@ mod tests {
                 api_token: api_token.to_string(),
             })
         }
+    }
+
+    // clientを新規作成した場合に正常に作成できることを確認するテスト
+    #[test]
+    fn test_new_toggl_client() {
+        let client = with_env_var("TOGGL_API_TOKEN", Some("test_token"), TogglClient::new);
+        assert!(client.is_ok());
+    }
+
+    // clientを新規作成したときに環境変数が設定されていなくてエラーすることを確認するテスト
+    #[test]
+    fn test_new_toggl_client_error() {
+        let client = with_env_var("TOGGL_API_TOKEN", None, TogglClient::new);
+        assert!(client.is_err());
     }
 
     // 正常系のテスト
@@ -332,6 +351,27 @@ mod tests {
         let result = client.read_time_entries(&start_at, &end_at).await;
         m2.assert_async().await;
         assert!(result.is_err());
+    }
+
+    // 環境変数を一時的に変更するヘルパー関数
+    fn with_env_var<T>(key: &str, value: Option<&str>, test: impl FnOnce() -> T) -> T {
+        let _lock = ENV_MUTEX.lock().unwrap();
+        let original_value = env::var(key).ok();
+
+        match value {
+            Some(new_value) => env::set_var(key, new_value),
+            None => env::remove_var(key),
+        }
+
+        let result = test();
+
+        // テスト後に元の状態に戻す
+        match original_value {
+            Some(val) => env::set_var(key, val),
+            None => env::remove_var(key),
+        }
+
+        result
     }
 
     // ダミータイムエントリを作成する
