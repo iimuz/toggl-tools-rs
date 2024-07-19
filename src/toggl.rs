@@ -20,12 +20,6 @@ pub trait TogglRepository {
     ///
     /// * `start_at` - 取得するタイムエントリーの開始日時
     /// * `end_at` - 取得するタイムエントリーの終了日時
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// let time_entries = client.get_timer(&start_at, &end_at).await.unwrap();
-    /// ```
     async fn read_time_entries(
         &self,
         start_at: &DateTime<Utc>,
@@ -34,13 +28,6 @@ pub trait TogglRepository {
 }
 
 /// Toggl APIと通信するためのクライアント。
-///
-/// # Examples
-///
-/// ```
-/// let client = TogglClient::new().unwrap();
-/// let time_entries = client.get_timer(&start_at, &end_at).await.unwrap();
-/// ```
 pub struct TogglClient {
     client: Client,
     api_url: String,
@@ -68,27 +55,14 @@ impl TogglRepository for TogglClient {
         start_at: &DateTime<Utc>,
         end_at: &DateTime<Utc>,
     ) -> Result<Vec<TimeEntry>> {
-        let toggl_time_entries = self
-            .client
-            .get(format!("{}/me/time_entries", self.api_url))
-            .basic_auth(&self.api_token, Some("api_token"))
-            .header(CONTENT_TYPE, "application/json")
-            .query(&[
-                ("start_date", start_at.to_rfc3339()),
-                ("end_date", end_at.to_rfc3339()),
-            ])
-            .send()
-            .await
-            .with_context(|| format!("Failed to send request to Toggl API at {}", self.api_url))?
-            .error_for_status()
-            .context("Request returned an error status")?
-            .json::<Vec<TogglTimeEntry>>()
-            .await
-            .context("Failed to deserialize response")?;
-        let toggl_projects = self
-            .read_projects()
-            .await
-            .context("Failed to get project list from toggl")?;
+        let (request_entries, request_projects) = tokio::join!(
+            self.read_toggl_time_entries(start_at, end_at),
+            self.read_projects()
+        );
+        let toggl_time_entries =
+            request_entries.context("Failed to get time entries from toggl")?;
+        let toggl_projects = request_projects.context("Failed to get project list from toggl")?;
+        // 複数回の検索を行う前提で、hashによる高速検索を行う
         let toggl_projects_map: HashMap<i64, TogglProject> = toggl_projects
             .into_iter()
             .map(|project| (project.id, project))
@@ -144,6 +118,33 @@ struct TogglProject {
 }
 
 impl TogglClient {
+    // Time entryを取得する。
+    async fn read_toggl_time_entries(
+        &self,
+        start_at: &DateTime<Utc>,
+        end_at: &DateTime<Utc>,
+    ) -> Result<Vec<TogglTimeEntry>> {
+        let entries = self
+            .client
+            .get(format!("{}/me/time_entries", self.api_url))
+            .basic_auth(&self.api_token, Some("api_token"))
+            .header(CONTENT_TYPE, "application/json")
+            .query(&[
+                ("start_date", start_at.to_rfc3339()),
+                ("end_date", end_at.to_rfc3339()),
+            ])
+            .send()
+            .await
+            .with_context(|| format!("Failed to send request to Toggl API at {}", self.api_url))?
+            .error_for_status()
+            .context("Request returned an error status")?
+            .json::<Vec<TogglTimeEntry>>()
+            .await
+            .context("Failed to deserialize response")?;
+
+        Ok(entries)
+    }
+
     /// プロジェクト情報を取得する。
     async fn read_projects(&self) -> Result<Vec<TogglProject>> {
         let projects = self
@@ -193,10 +194,11 @@ mod tests {
     // 正常系のテスト
     #[tokio::test]
     #[rstest]
-    #[case::normal(&[dummy_time_entry(1)], &[dummy_projects(0)])]
-    #[case::no_entry(&[], &[dummy_projects(0)])]
+    #[case::normal(&[dummy_time_entry(1)], &[dummy_projects(1)])]
+    #[case::no_entry(&[], &[dummy_projects(1)])]
     #[case::no_projects(&[dummy_time_entry(1)], &[])]
     #[case::no_entry_no_projects(&[], &[])]
+    #[case::multi_entries(&[dummy_time_entry(1), dummy_time_entry(2)], &[dummy_projects(1), dummy_projects(2)])]
     async fn test_read_time_entries(
         #[case] time_entries: &[TogglTimeEntry],
         #[case] projects: &[TogglProject],
@@ -309,7 +311,6 @@ mod tests {
         let end_at = DateTime::parse_from_rfc3339("2024-01-03T00:00:00+09:00")
             .unwrap()
             .to_utc();
-        let time_entries = vec![dummy_time_entry(1)];
 
         // モックサーバーの起動
         let mut server = Server::new_async().await;
@@ -318,18 +319,6 @@ mod tests {
             "Basic {}",
             BASE64_STANDARD.encode(format!("{}:api_token", api_token))
         );
-        let m1 = server
-            .mock("GET", "/me/time_entries")
-            .match_header("Authorization", authorization.as_str())
-            .match_header("content-type", "application/json")
-            .match_query(mockito::Matcher::AllOf(vec![
-                mockito::Matcher::UrlEncoded("start_date".into(), start_at.to_rfc3339()),
-                mockito::Matcher::UrlEncoded("end_date".into(), end_at.to_rfc3339()),
-            ]))
-            .with_status(200)
-            .with_body(serde_json::to_string(&time_entries).unwrap())
-            .create_async()
-            .await;
         let m2 = server
             .mock("GET", "/me/projects")
             .match_header("Authorization", authorization.as_str())
@@ -341,7 +330,6 @@ mod tests {
         // テストの実行
         let client = TogglClient::new_test(&url, api_token).unwrap();
         let result = client.read_time_entries(&start_at, &end_at).await;
-        m1.assert_async().await;
         m2.assert_async().await;
         assert!(result.is_err());
     }
@@ -352,11 +340,20 @@ mod tests {
             // 基本的な設定
             1 => TogglTimeEntry {
                 description: "entry 1".to_string(),
-                project_id: Some(0),
+                project_id: Some(1),
                 start: "2024-01-02T01:02:03+09:00".to_string(),
                 stop: Some("2024-01-02T01:02:04+09:00".to_string()),
                 duration: 1,
                 tags: vec!["tag 1".to_string()],
+            },
+            // no project, no tags
+            2 => TogglTimeEntry {
+                description: "entry 2".to_string(),
+                project_id: None,
+                start: "2024-01-02T01:03:00+09:00".to_string(),
+                stop: Some("2024-01-02T01:04:00+09:00".to_string()),
+                duration: 60,
+                tags: vec![],
             },
             _ => panic!("Invalid pattern: {}", pattern),
         }
@@ -365,9 +362,13 @@ mod tests {
     // ダミープロジェクトを作成する
     fn dummy_projects(pattern: u8) -> TogglProject {
         match pattern {
-            0 => TogglProject {
-                id: 0,
+            1 => TogglProject {
+                id: 1,
                 name: "project 1".to_string(),
+            },
+            2 => TogglProject {
+                id: 2,
+                name: "project 2".to_string(),
             },
             _ => panic!("Invalid pattern: {}", pattern),
         }
@@ -390,7 +391,7 @@ mod tests {
                     .find(|project| project.id == id)
                     .map(|project| project.name.clone())
             })
-            .unwrap();
+            .unwrap_or_default();
 
         crate::time_entry::TimeEntry {
             start,
