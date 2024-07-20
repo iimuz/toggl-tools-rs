@@ -1,7 +1,7 @@
-use std::io::Write;
+use std::{collections::HashMap, io::Write};
 
 use anyhow::{Context, Result};
-use chrono::{DateTime, Local, Utc};
+use chrono::{Local, NaiveDate};
 
 use crate::time_entry::{ProjectDurations, TimeEntry};
 
@@ -15,7 +15,7 @@ pub trait ConsolePresenter {
     // 複数の集計結果を表示する。
     fn show_multi_durations(
         &mut self,
-        durations: &[(DateTime<Utc>, Result<ProjectDurations>)],
+        durations: &HashMap<NaiveDate, ProjectDurations>,
     ) -> Result<()>;
 }
 
@@ -74,27 +74,14 @@ impl<'a, W: Write> ConsolePresenter for ConsoleMarkdownList<'a, W> {
     // project, tagごとの集計結果を表示する。
     fn show_multi_durations(
         &mut self,
-        durations: &[(DateTime<Utc>, Result<ProjectDurations>)],
+        durations: &HashMap<NaiveDate, ProjectDurations>,
     ) -> Result<()> {
         let mut sorted_durations = durations.iter().collect::<Vec<_>>();
-        sorted_durations.sort_by_key(|(date, _)| date);
-        sorted_durations
-            .iter()
-            .try_for_each(|(date, duration)| {
-                let local_date = date.with_timezone(&Local);
-                println!("## {}", local_date);
-                match duration {
-                    Ok(d) => self.show_durations(d),
-                    Err(err) => {
-                        println!("Failed to show durations: {}", err);
-                        Ok(())
-                    }
-                }
-                .context("Failed to show durations")?;
-
-                Ok::<_, anyhow::Error>(())
-            })
-            .context("Failed to show multi durations")?;
+        sorted_durations.sort_by_key(|(date, _)| *date);
+        sorted_durations.iter().for_each(|(date, duration)| {
+            println!("## {}", date);
+            self.show_durations(duration).unwrap();
+        });
 
         Ok(())
     }
