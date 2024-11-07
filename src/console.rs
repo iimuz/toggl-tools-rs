@@ -60,13 +60,33 @@ impl<'a, W: Write> ConsolePresenter for ConsoleMarkdownList<'a, W> {
 
     // project, tagごとの集計結果を表示する。
     fn show_durations(&mut self, durations: &ProjectDurations) -> Result<()> {
-        durations.iter().for_each(|(project, tags)| {
-            println!("- {}", project);
-            tags.iter().for_each(|(tag, duration)| {
-                let duration_hours = *duration as f64 / 3600.0;
-                println!("  - {}: {:.2}", tag, duration_hours);
-            });
-        });
+        let sorted_project_keys = {
+            let mut keys = durations.keys().collect::<Vec<_>>();
+            keys.sort();
+            keys
+        };
+        sorted_project_keys
+            .iter()
+            .try_for_each(|project| {
+                writeln!(self.writer, "- {}", project)
+                    .with_context(|| format!("Failed to write project: {}", project))?;
+
+                let tags = durations.get(*project).unwrap();
+                let sorted_tag_keys = {
+                    let mut keys = tags.keys().collect::<Vec<_>>();
+                    keys.sort();
+                    keys
+                };
+                sorted_tag_keys.iter().try_for_each(|tag| {
+                    let duration_sec = *tags.get(*tag).unwrap() as f64;
+                    let duration_hours = duration_sec / 3600.0;
+                    writeln!(self.writer, "  - {}: {:.2}", tag, duration_hours).with_context(
+                        || format!("Failed to write duration: {} {}", project, tag),
+                    )?;
+                    anyhow::Ok(())
+                })
+            })
+            .context("Failed to write durations")?;
 
         Ok(())
     }
@@ -76,12 +96,23 @@ impl<'a, W: Write> ConsolePresenter for ConsoleMarkdownList<'a, W> {
         &mut self,
         durations: &HashMap<NaiveDate, ProjectDurations>,
     ) -> Result<()> {
-        let mut sorted_durations = durations.iter().collect::<Vec<_>>();
-        sorted_durations.sort_by_key(|(date, _)| *date);
-        sorted_durations.iter().for_each(|(date, duration)| {
-            println!("## {}", date);
-            self.show_durations(duration).unwrap();
-        });
+        let sorted_dates = {
+            let mut dates = durations.keys().collect::<Vec<_>>();
+            dates.sort();
+            dates
+        };
+        sorted_dates
+            .iter()
+            .try_for_each(|date| {
+                writeln!(self.writer, "## {}", date)
+                    .with_context(|| format!("Failed to write date: {}", date))?;
+
+                let duration = durations.get(*date).unwrap();
+                self.show_durations(duration)
+                    .context("Failed to write durations")?;
+                anyhow::Ok(())
+            })
+            .context("Failed to write multi durations")?;
 
         Ok(())
     }
